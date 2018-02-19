@@ -1,0 +1,355 @@
+<html>
+<head>
+<meta charset ="utf-8">
+<script src="//d3js.org/d3.v4.min.js"></script>
+
+<style>
+
+body {
+  margin:auto;
+  width:1500px;
+  font:10px arial;
+  padding:25px;
+  color:#555;
+}
+
+.toolTip {
+  position: absolute;
+  display: none;
+  min-width: 80px;
+  height: auto;
+  background: none repeat scroll 0 0 #ffffff;
+  border: 1px solid #6F257F;
+  padding: 14px;
+  text-align: center;
+  font:12px sans-serif;
+}
+
+.barEnter:hover {
+  fill: brown;
+}
+
+select {
+  border: none;
+  border-bottom: 1px solid #ccc;
+  padding: 3px;
+  text-decoration: none;
+  font-size: 11px;
+  cursor: pointer;
+}
+select:focus {
+  outline:0;
+}
+.sortCheck {
+  float:right;
+  margin-top:-425px;
+  margin-right:1200px;
+}
+#myCheckbox {
+  position:relative;
+  top:3px;
+}
+
+/* --- Chart Css --- */
+path.barEnter {
+  fill: steelblue;
+  stroke-width: 2px;
+}
+.barEnter:hover {
+  opacity: 1;
+}
+.axis--x path {
+  display: none;
+}
+.grid--y path,
+.grid--y text {
+  display: none;
+}
+.grid--y line {
+  opacity:.15;
+}
+
+</style>
+
+</head>
+
+<body>
+<img src="Kickstarter_logo.svg.png" width="200" height="23.4">
+<h2 style="font-weight:bold;">Kickstarter Projects Funding Based on Categories from 2009 to 2017</h2>
+
+<!-- Selection Category -->
+<!-- <b style="font-size:11px;">Choose Category</b> -->
+
+<!-- <select id="category">
+  <option value=" 1">Category 1</option>
+  <option value=" 2">Category 2</option>
+</select>  -->
+
+<!-- Selection New dataset -->
+<span style="margin-left:30px;">
+  <b style="font-size:11px;">
+  Choose Year
+  </b>
+
+  <select id="year">
+    <option value="2009">2009</option>
+    <option value="2010">2010</option>
+    <option value="2011">2011</option>
+    <option value="2012">2012</option>
+    <option value="2013">2013</option>
+    <option value="2014">2014</option>
+    <option value="2015">2015</option>
+    <option value="2016">2016</option>
+    <option value="2017">2017</option>
+  </select>
+</span>
+
+<!-- Chart -->
+<div id="chart"></div>
+
+<!-- Sort dimension -->
+<span class="sortCheck">Sort Values
+  <input type="checkbox" id="myCheckbox">
+</span>
+
+<script>
+
+
+
+let formatValue = d3.format("$.2s");
+
+let margin = {top: 35, right: 145, bottom: 50, left: 75},
+    width = 1200 - margin.left - margin.right,
+    height = 400 - margin.top - margin.bottom;
+
+let x = d3.scaleBand().rangeRound([0, width]).padding(0.1),
+    y = d3.scaleLinear().rangeRound([height, 0]);
+
+let xAxis = d3.axisBottom(x),
+    yAxis = d3.axisLeft(y),
+    yGrid = d3.axisLeft(y).tickSize(-width);
+
+
+let g = d3.select("#chart").append("svg")
+    .attr("width", width + margin.left + margin.right)
+    .attr("height", height + margin.top + margin.bottom)
+    .append("g")
+    .attr("transform","translate(" + margin.left + "," + margin.top + ")");
+
+let sideTextX = width + 30,
+    sideTextY = -height + height;
+
+var durations = 0;
+
+function afterLoad() {
+    durations = 750;
+};
+
+// This is just a comment
+var myName = "Something";
+var tooltip = d3.select("body").append("div").attr("class", "toolTip");
+g.append("g")
+    .attr("class", "axis axis--x")
+    .attr("transform", "translate(0," + height + ")");
+
+g.append("g")
+    .attr("class", "axis axis--y")
+
+    // .tickFormat(d3.format(".2s"));
+
+g.append("g")
+    .attr("class", "axis grid--y")
+    // .tickFormat(d3.format(".2s"));
+
+function type(d) { return d; }
+
+d3.queue()
+    .defer(d3.csv, "2009.csv", type)
+    .defer(d3.csv, "2010.csv", type)
+    .defer(d3.csv, "2011.csv", type)
+    .defer(d3.csv, "2012.csv", type)
+    .defer(d3.csv, "2013.csv", type)
+    .defer(d3.csv, "2014.csv", type)
+    .defer(d3.csv, "2015.csv", type)
+    .defer(d3.csv, "2016.csv", type)
+    .defer(d3.csv, "2017.csv", type)
+    .await(ready);
+
+function ready(error, data1, data2, data3, data4, data5, data6, data7, data8, data9) {
+
+  if (error) throw error;
+
+  var data, INT, sortIndex, dataCsv;
+
+  // Event handlers
+  d3.select("#myCheckbox").on('change', update);
+  d3.select("#year").on('change', function() {
+    dataCsv = d3.select('#year').property('value') == '2009' ? data1 :
+              d3.select('#year').property('value') == '2010' ? data2 :
+              d3.select('#year').property('value') == '2011' ? data3 :
+              d3.select('#year').property('value') == '2012' ? data4 :
+              d3.select('#year').property('value') == '2013' ? data5 :
+              d3.select('#year').property('value') == '2014' ? data6 :
+              d3.select('#year').property('value') == '2015' ? data7 :
+              d3.select('#year').property('value') == '2016' ? data8 : data9;
+
+    data = d3.nest()
+      .key(function(d) { return d.main_category; })
+      .rollup(function(v) { return d3.sum(v, function(d) {return d.usd_pledged_real; }); })
+      .entries(dataCsv);
+
+    sortIndex = data.map( function(d) { return d.key} );
+    update();
+  });
+
+  init();
+  update();
+
+  function init() {
+    dataCsv = d3.select('#year').property('value') == '2009' ? data1 :
+              d3.select('#year').property('value') == '2010' ? data2 :
+              d3.select('#year').property('value') == '2011' ? data3 :
+              d3.select('#year').property('value') == '2012' ? data4 :
+              d3.select('#year').property('value') == '2013' ? data5 :
+              d3.select('#year').property('value') == '2014' ? data6 :
+              d3.select('#year').property('value') == '2015' ? data7 :
+              d3.select('#year').property('value') == '2016' ? data8 : data9;
+
+    data = d3.nest()
+      .key(function(d) { return d.main_category; })
+      .rollup(function(v) { return d3.sum(v, function(d) {return d.usd_pledged_real; }); })
+      .entries(dataCsv);
+
+    sortIndex = data.map( function(d) { return d.key} );
+
+    g.append("text")
+      .attr("transform",
+            "translate(" + (width/2) + " ," +
+                           (height + margin.top) + ")")
+      .style("text-anchor", "middle")
+      .text("Main Categories")
+      .style("font-size", "12px");
+
+    // Label for y-axis
+    g.append("text")
+        .attr("transform", "rotate(-90)")
+        .attr("y", 0 - margin.left + 10)
+        .attr("x",0 - (height / 2))
+        .attr("dy", "1em")
+        .style("text-anchor", "middle")
+        .text("USD Pleged ($)")
+        .style("font-size", "12px");
+  }
+
+  function update() {
+
+    // Update domain
+    y.domain([0, d3.max(data, function(d) {
+        return d.value; })
+    ]).nice();
+
+    // Update axis
+    g.selectAll(".axis.axis--y").transition()
+      .duration(durations)
+      .call(yAxis.tickFormat(d3.format(".3s")));
+    g.selectAll(".axis.grid--y").transition()
+      .duration(durations)
+      .call(yGrid);
+
+    //sort data
+    data.sort( d3.select("#myCheckbox").property("checked")
+      ? function(a, b) { return b.value - a.value; }
+      : function(a, b) { return sortIndex.indexOf(a.key) - sortIndex.indexOf(b.key);}).slice();
+
+    // set x domain
+    x.domain(data.map(function(d) { return d.key; }));
+
+    g.selectAll(".axis.axis--x").transition()
+      .duration(durations)
+      .call(xAxis);
+
+    // Update rectangles
+    let bars = g.selectAll(".barEnter")
+      .data(data, function(d) {
+        return d.key;
+      });
+
+    bars = bars
+      .enter()
+      .append("path") // Appending path rather than rect
+      .attr("class", "barEnter")
+      .merge(bars)
+            .on("mousemove", function(d){
+            tooltip
+              .style("left", d3.event.pageX - 50 + "px")
+              .style("top", d3.event.pageY - 70 + "px")
+              .style("display", "inline-block")
+              .html((d.key) + "<br>" + d3.format("($.5s")(d.value));
+        })
+    .on("mouseout", function(d){ tooltip.style("display", "none");});
+
+    bars.transition()
+      .duration(durations)
+      .attr("d", function(d) {
+        return roundedRect(
+          x(d.key),                       // x position
+          y(d.value),                     // y position
+          x.bandwidth(),                  // width
+          height - y(d.value),            // height
+          5                               // radius
+        )
+      });
+
+    bars.exit().remove();
+
+    // Update text on rectangles
+    let textUpdate = g.selectAll(".textEnter")
+      .data(data, function(d) {
+        return d.key;
+      });
+
+    // textUpdate = textUpdate.enter()
+    //   .append("text")
+    //   .style("text-shadow","1px 1px #777")
+    //   .attr("class", "textEnter") // Enter data reference
+    //   .attr("text-anchor","middle")
+    //   .attr("font-size",11)
+    //   .attr("fill","#fff")
+    //   .merge(textUpdate);
+
+    textUpdate.transition()
+      .duration(durations)
+      .attr("y", function(d) {
+        return y(d.value) + 15;
+        })
+      .attr("x", function(d) {
+        return x(d.key) + x.bandwidth()/2;
+      })
+      // Update text value
+      .text( function(d) {
+        return d3.format("($.2s")(d.value);
+      })
+
+  } // End of update
+
+  function roundedRect(x, y, width, height, radius) {
+    return "M" + (x + radius) + "," + y + "h" + (width - 2*radius) +
+           "a" + radius + "," + radius + " 0 0 1 " + radius + "," + radius +
+           "v" + (height - 2*radius) +
+           "v" + radius +
+           "h" + -radius +
+           "h" + (2*radius - width) +
+           "h" + -radius +
+           "v" + -radius +
+           "v" + (2*radius - height) +
+           "a" + radius + "," + radius + " 0 0 1 " + radius + "," + -radius + "z";
+  };
+
+  afterLoad()
+
+} // End of ready
+
+</script>
+
+</body>
+</html>
